@@ -1,0 +1,68 @@
+#!/usr/bin/env bash
+
+# This is an auomated script to install archlinux minimal.
+
+part_one(){
+	# Set latinamrican keyboard.
+	loadkeys la-latin1
+	## Check internet connection.
+	internet=$(ping archlinux.org | grep -wo "1 packets")
+	if [[ -n $internet ]] ; then
+		wifi-menu
+	else
+		echo -e "Internet connection working :)\n"
+		sleep 0.5
+	fi
+	# Update system clock
+	timedatectl set-ntp true
+	# Install a bigger font
+	pacman -Sy terminus-font
+	## Sort servers rank for speed
+	pacman -Sy pacman-rankmirros
+	pacman -Sy pacman-contrib
+	rm -f /etc/pacman.d/mirrorlist
+	# Get the mirrorlist directly from the website.
+	curl -o /etc/pacman.d/mirrorlist https://www.archlinux.org/mirrorlist/all/
+	cp /etc/pacman.d/mirrorlist /etc/pacman.d/mirrorlist.back
+	sed -i 's/^#Server/Server/' /etc/pacman.d/mirrorlist.back
+	nohup rankmirrors -n 6 /etc/pacman.d/mirrorlist.back > /etc/pacman.d/mirrorlist &
+	pid=$!
+	cgdisk /dev/sda
+	mkfs.ext4 /dev/sda5 -L "Archlinux"
+	mkswap /dev/sda6 -L "swap"
+	mkdir -p /mnt/boot
+	mount /dev/sda5 /mnt
+	mount /dev/sda2 /mnt/boot
+	swapon /dev/sda6
+	wait $pid
+	pacstrap /mnt base base-devel
+	genfstab -U /mnt >> /mnt/etc/fstab
+	arch-chroot /mnt
+}
+part_two(){
+	# Time zone
+	ln -sf /usr/share/zoneinfo/America/Mexico_city /etc/localtime
+	hwclock --systohc
+	sed -i 's/^#en_US.UTF-8/en_US.UTF-8/'  /etc/locale.gen
+	sed -i 's/^#es_MX.UTF-8/es_MX.UTF-8/'  /etc/locale.gen
+	locale-gen
+	echo "LANG=en_US.UTF-8" > /etc/locale.conf
+	echo -e  "KEYMAP=la-latin1\nFONT=ter-v20b" > /etc/vconsole.conf
+	clear
+	read -p "Ingresa el nombre del equipo: " hostNAME
+	echo "$hostNAME" > /etc/hostname
+	rm -f /etc/hosts
+	echo -e "127.0.0.1	localhost\n::1		localhost\n127.0.1.1	${hostNAME}.localdomain	$hostNAME" > /etc/hosts
+	mkinitcpio -p linux
+	bootctl install
+	clear 
+	echo "Enter the root password"
+	passwd
+}
+
+main(){
+	echo -e "1) First config\n2) Inside the new sys"
+	read -p "ingresa una opción: " opt
+	case $opt
+	esac
+}
