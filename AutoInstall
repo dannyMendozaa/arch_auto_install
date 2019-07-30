@@ -52,17 +52,25 @@ part_two(){
 	read -p "Ingresa el nombre del equipo: " hostNAME
 	echo "$hostNAME" > /etc/hostname
 	rm -f /etc/hosts
-	echo -e "127.0.0.1	localhost\n::1		localhost\n127.0.1.1	${hostNAME}.localdomain	$hostNAME" > /etc/hosts
+	echo -e "127.0.0.1\tlocalhost\n::1\t\tlocalhost\n127.0.1.1\t${hostNAME}.localdomain\t$hostNAME" > /etc/hosts
 	mkinitcpio -p linux
 	bootctl install
 	clear 
 	echo "Enter the root password"
 	passwd
+	rm -f /boot/loader/loader.conf
+	echo -e "default\tarch\ntimeout\t5" > /boot/loader/loader.conf
+	echo -e "title GNU/Linux Archlinux D@nNix main OS\nlinux /vmlinuz-linux\ninitrd /intel-ucode.img\ninitrd /initramfs-linux.img\noptions root=\n\n" > /boot/loader/entries/arch.conf
 }
 
 main(){
+	clear
 	echo -e "1) First config\n2) Inside the new sys"
 	read -p "ingresa una opción: " opt
-	case $opt
+	case $opt in
+		1)	part_one ;;
+		2)	part_two ;;
+		*) 	echo "opcion no valida" ;;
 	esac
 }
+main
