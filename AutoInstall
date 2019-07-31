@@ -1,26 +1,28 @@
 #!/usr/bin/env bash
 
-# This is an auomated script to install archlinux minimal.
+# This is an auomated script to install archlinux minimal (dual boot MS-Windows).
+# Internal use
 
 part_one(){
 	# Set latinamrican keyboard.
 	loadkeys la-latin1
 	## Check internet connection.
-	internet=$(ping archlinux.org | grep -wo "1 packets")
+	internet=$(ping archlinux.org -c1 | grep -wo "1 packets")
 	if [[ -n $internet ]] ; then
-		wifi-menu
-	else
+		clear
 		echo -e "Internet connection working :)\n"
 		sleep 0.5
+	else
+		wifi-menu
 	fi
 	# Update system clock
 	timedatectl set-ntp true
 	# Install a bigger font
-	pacman -Sy terminus-font
+	pacman -Sy terminus-font --noconfirm
 	## Sort servers rank for speed
-	pacman -Sy pacman-rankmirros
-	pacman -Sy pacman-contrib
-	rm -f /etc/pacman.d/mirrorlist
+	pacman -Sy pacman-rankmirros --noconfirm
+	pacman -Sy pacman-contrib --noconfirm
+	rm -f /etc/pacman.d/mirrorlist --noconfirm
 	# Get the mirrorlist directly from the website.
 	curl -o /etc/pacman.d/mirrorlist https://www.archlinux.org/mirrorlist/all/
 	cp /etc/pacman.d/mirrorlist /etc/pacman.d/mirrorlist.back
@@ -30,13 +32,14 @@ part_one(){
 	cgdisk /dev/sda
 	mkfs.ext4 /dev/sda5 -L "Archlinux"
 	mkswap /dev/sda6 -L "swap"
-	mkdir -p /mnt/boot
+	mkdir /mnt/boot
 	mount /dev/sda5 /mnt
 	mount /dev/sda2 /mnt/boot
 	swapon /dev/sda6
 	wait $pid
 	pacstrap /mnt base base-devel
 	genfstab -U /mnt >> /mnt/etc/fstab
+	clear ; echo "Ctrl+C if something was wrong" ; sleep 10
 	arch-chroot /mnt
 }
 part_two(){
@@ -55,12 +58,19 @@ part_two(){
 	echo -e "127.0.0.1\tlocalhost\n::1\t\tlocalhost\n127.0.1.1\t${hostNAME}.localdomain\t$hostNAME" > /etc/hosts
 	mkinitcpio -p linux
 	bootctl install
-	clear 
+	clear
 	echo "Enter the root password"
 	passwd
 	rm -f /boot/loader/loader.conf
 	echo -e "default\tarch\ntimeout\t5" > /boot/loader/loader.conf
-	echo -e "title GNU/Linux Archlinux D@nNix main OS\nlinux /vmlinuz-linux\ninitrd /intel-ucode.img\ninitrd /initramfs-linux.img\noptions root=\n\n" > /boot/loader/entries/arch.conf
+	uuid=$(blkid | grep /dev/sda5 | awk {'print $3'} | sed -e 's/"//g')
+	echo -e "title GNU/Linux Archlinux D@nNix main OS\nlinux /vmlinuz-linux\ninitrd /intel-ucode.img\ninitrd /initramfs-linux.img\noptions root=$uuid rw" > /boot/loader/entries/arch.conf
+	pacman -Sy intel-ucode iw wpa_supplicant networkmanager dialog terminus-font git wget openssh --noconfirm
+}
+
+quit(){
+	clear
+	exit 0
 }
 
 main(){
@@ -70,6 +80,7 @@ main(){
 	case $opt in
 		1)	part_one ;;
 		2)	part_two ;;
+		3)  quit	 ;;
 		*) 	echo "opcion no valida" ;;
 	esac
 }
