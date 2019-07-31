@@ -19,6 +19,7 @@ part_one(){
 	timedatectl set-ntp true
 	# Install a bigger font
 	pacman -Sy terminus-font --noconfirm
+	setfont ter-v20b
 	## Sort servers rank for speed
 	pacman -Sy pacman-rankmirros --noconfirm
 	pacman -Sy pacman-contrib --noconfirm
@@ -31,7 +32,7 @@ part_one(){
 	pid=$!
 	cgdisk /dev/sda
 	mkfs.ext4 /dev/sda5 -L "Archlinux"
-	mkswap /dev/sda6 -L "swap"
+	mkswap /dev/sda6 -L "Swap"
 	mkdir /mnt/boot
 	mount /dev/sda5 /mnt
 	mount /dev/sda2 /mnt/boot
