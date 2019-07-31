@@ -80,7 +80,7 @@ main(){
 	case $opt in
 		1)	part_one ;;
 		2)	part_two ;;
-		3)  quit	 ;;
+		3)	quit	 ;;
 		*) 	echo "opcion no valida" ;;
 	esac
 }
