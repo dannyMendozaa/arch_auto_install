@@ -31,7 +31,7 @@ part_one(){
 	sed -i 's/^#Server/Server/' /etc/pacman.d/mirrorlist.back
 	nohup rankmirrors -n 6 /etc/pacman.d/mirrorlist.back > /etc/pacman.d/mirrorlist &
 	pid=$!
-	cgdisk /dev/sda
+	# cgdisk /dev/sda
 	pvcreate /dev/sda5
 	vgcreate ArchLVM /dev/sda5
 	lvcreate -L 80G ArchLVM -n crypt_root_lvm
@@ -49,6 +49,7 @@ part_one(){
 	mkfs.ext4 /dev/ArchLVM/home_lvm -L "home_arch"
 	mkswap /dev/ArchLVM/swap_lvm -L "swap_arch"
 	mount /dev/mapper/root /mnt
+	mount /dev/ArchLVM/home_lvm /mnt
 	mkdir /mnt/boot
 	mount /dev/sda2 /mnt/boot
 	swapon /dev/ArchLVM/swap_lvm
