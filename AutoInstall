@@ -13,6 +13,7 @@ part_one(){
 		echo -e "Internet connection working :)\n"
 		sleep 0.5
 	else
+		echo -e "Internet conection does not work :(\n"
 		wifi-menu
 	fi
 	# Update system clock
@@ -31,15 +32,30 @@ part_one(){
 	nohup rankmirrors -n 6 /etc/pacman.d/mirrorlist.back > /etc/pacman.d/mirrorlist &
 	pid=$!
 	cgdisk /dev/sda
-	mkfs.ext4 /dev/sda5 -L "Archlinux"
-	mkswap /dev/sda6 -L "Swap"
+	pvcreate /dev/sda5
+	vgcreate ArchLVM /dev/sda5
+	lvcreate -L 80G ArchLVM -n crypt_root_lvm
+	lvcreate -L 4G ArchLVM -n swap_lvm
+	lvcreate -l 100%FREE ArchLVM -n home_lvm
+	modprobe dm_mod
+	clear
+	vgscan
+	vgchange -ay
+	sleep 4
+	# encrypt root partition
+	cryptsetup luksFormat --type luks2 /dev/ArchLVM/crypt_root_lvm
+	cryptsetup open /dev/ArchLVM/crypt_root_lvm root
+	mkfs.ext4 /dev/mapper/root -L "root_arch"
+	mkfs.ext4 /dev/ArchLVM/home_lvm -L "home_arch"
+	mkswap /dev/ArchLVM/swap_lvm -L "swap_arch"
+	mount /dev/mapper/root /mnt
 	mkdir /mnt/boot
-	mount /dev/sda5 /mnt
 	mount /dev/sda2 /mnt/boot
-	swapon /dev/sda6
+	swapon /dev/ArchLVM/swap_lvm
 	wait $pid
 	pacstrap /mnt base base-devel
 	genfstab -U /mnt >> /mnt/etc/fstab
+	cp AutoInstall /mnt
 	clear ; echo "Ctrl+C if something was wrong" ; sleep 10
 	arch-chroot /mnt
 }
@@ -47,8 +63,8 @@ part_two(){
 	# Time zone
 	ln -sf /usr/share/zoneinfo/America/Mexico_city /etc/localtime
 	hwclock --systohc
-	sed -i 's/^#en_US.UTF-8/en_US.UTF-8/'  /etc/locale.gen
-	sed -i 's/^#es_MX.UTF-8/es_MX.UTF-8/'  /etc/locale.gen
+	sed -i 's/^#en_US/en_US/'  /etc/locale.gen
+	sed -i 's/^#es_MX/es_MX/'  /etc/locale.gen
 	locale-gen
 	echo "LANG=en_US.UTF-8" > /etc/locale.conf
 	echo -e  "KEYMAP=la-latin1\nFONT=ter-v20b" > /etc/vconsole.conf
@@ -57,6 +73,9 @@ part_two(){
 	echo "$hostNAME" > /etc/hostname
 	rm -f /etc/hosts
 	echo -e "127.0.0.1\tlocalhost\n::1\t\tlocalhost\n127.0.1.1\t${hostNAME}.localdomain\t$hostNAME" > /etc/hosts
+	echo -e "\n### Edit the file and insert lvm2 between block and filesystems" >> /etc/mkinitcpio.conf
+	echo -e "### HOOKS=(base udev autodetect keyboard keymap consolefont modconf block lvm2 encrypt filesystems fsck)" >> /etc/mkinitcpio.conf
+	vim /etc/mkinitcpio.conf
 	mkinitcpio -p linux
 	bootctl install
 	clear
@@ -64,8 +83,8 @@ part_two(){
 	passwd
 	rm -f /boot/loader/loader.conf
 	echo -e "default\tarch\ntimeout\t5" > /boot/loader/loader.conf
-	uuid=$(blkid | grep /dev/sda5 | awk {'print $3'} | sed -e 's/"//g')
-	echo -e "title GNU/Linux Archlinux D@nNix main OS\nlinux /vmlinuz-linux\ninitrd /intel-ucode.img\ninitrd /initramfs-linux.img\noptions root=$uuid rw" > /boot/loader/entries/arch.conf
+	uuid=$(blkid | grep /dev/ArchLVM/crypt_root_lvm | awk {'print $3'} | sed -e 's/"//g')
+	echo -e "title GNU/Linux Arch linux D@nNix\nlinux /vmlinuz-linux\ninitrd /intel-ucode.img\ninitrd /initramfs-linux.img\noptions cryptdevice=UUID=${uuid}:root\nroot=/dev/mapper/root rw" > /boot/loader/entries/arch.conf
 	pacman -Sy intel-ucode iw wpa_supplicant networkmanager dialog terminus-font git wget openssh --noconfirm
 }
 
