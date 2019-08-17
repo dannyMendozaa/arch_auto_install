@@ -33,31 +33,26 @@ part_one(){
 	pid=$!
 	# cgdisk /dev/sda
 	pvcreate /dev/sda5
-	vgcreate ArchLVM /dev/sda5
-	lvcreate -L 80G ArchLVM -n crypt_root_lvm
-	lvcreate -L 4G ArchLVM -n swap_lvm
-	lvcreate -l 100%FREE ArchLVM -n home_lvm
-	modprobe dm_mod
-	clear
-	vgscan
-	vgchange -ay
-	sleep 4
+	vgcreate archlvm /dev/sda5
+	lvcreate -L 80G -n crypt_root_lvm archlvm
+	lvcreate -L 4G -n crypt_swap_lvm archlvm
+	lvcreate -l 100%FREE -n crypt_home_lvm archlvm
 	# encrypt root partition
 	cryptsetup luksFormat --type luks2 /dev/ArchLVM/crypt_root_lvm
 	cryptsetup open /dev/ArchLVM/crypt_root_lvm root
-	mkfs.ext4 /dev/mapper/root -L "root_arch"
-	mkfs.ext4 /dev/ArchLVM/home_lvm -L "home_arch"
-	mkswap /dev/ArchLVM/swap_lvm -L "swap_arch"
+	mkfs.ext4 /dev/mapper/root -L "crypt_root"
+	# mkfs.ext4 /dev/ArchLVM/home_lvm -L "home_arch"
+	# mkswap /dev/ArchLVM/swap_lvm -L "swap_arch"
 	mount /dev/mapper/root /mnt
-	mount /dev/ArchLVM/home_lvm /mnt
+	# mount /dev/ArchLVM/home_lvm /mnt
 	mkdir /mnt/boot
 	mount /dev/sda2 /mnt/boot
-	swapon /dev/ArchLVM/swap_lvm
-	wait $pid
-	pacstrap /mnt base base-devel
+	# swapon /dev/ArchLVM/swap_lvm
+	#wait $pid
+	pacstrap -i /mnt base base-devel
 	genfstab -U /mnt >> /mnt/etc/fstab
 	cp AutoInstall /mnt
-	clear ; echo "Ctrl+C if something was wrong" ; sleep 10
+	echo -e "\n\nCtrl+C if something was wrong" ; sleep 10
 	arch-chroot /mnt
 }
 part_two(){
