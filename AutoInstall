@@ -32,26 +32,26 @@ part_one(){
 	nohup rankmirrors -n 6 /etc/pacman.d/mirrorlist.back > /etc/pacman.d/mirrorlist &
 	pid=$!
 	# cgdisk /dev/sda
-	pvcreate /dev/sda5
-	vgcreate archlvm /dev/sda5
-	lvcreate -L 80G -n crypt_root_lvm archlvm
-	lvcreate -L 4G -n crypt_swap_lvm archlvm
-	lvcreate -l 100%FREE -n crypt_home_lvm archlvm
+	cryptsetup luksFormat /dev/sda5
+	cryptsetup open /dev/sda5 cryptlvm
+	pvcreate /dev/mapper/cryptlvm
+	vgcreate archlvm /dev/mapper/cryptlvm
+	lvcreate -L 80G archlvm -n cryptroot_lvm
+	lvcreate -L 4G archlvm -n cryptswap_lvm
+	lvcreate -l 100%FREE archlvm -n crypthome_lvm
 	# encrypt root partition
-	cryptsetup luksFormat --type luks2 /dev/ArchLVM/crypt_root_lvm
-	cryptsetup open /dev/ArchLVM/crypt_root_lvm root
-	mkfs.ext4 /dev/mapper/root -L "crypt_root"
-	# mkfs.ext4 /dev/ArchLVM/home_lvm -L "home_arch"
-	# mkswap /dev/ArchLVM/swap_lvm -L "swap_arch"
-	mount /dev/mapper/root /mnt
-	# mount /dev/ArchLVM/home_lvm /mnt
-	mkdir /mnt/boot
+	mkfs.ext4 /dev/archlvm/cryptroot_lvm -L "crypt_root"
+	mkfs.ext4 /dev/archlvm/crypthome_lvm -L "home_arch"
+	mkswap /dev/archlvm/cryptswap_lvm -L "swap_arch"
+	mount /dev/archlvm/cryptroot_lvm /mnt
+	mkdir /mnt/{boot,home}
 	mount /dev/sda2 /mnt/boot
-	# swapon /dev/ArchLVM/swap_lvm
-	#wait $pid
-	pacstrap -i /mnt base base-devel
+	mount /dev/archlvm/crypthome_lvm /mnt/home
+	swapon /dev/archlvm/cryptswap_lvm
+	wait $pid
+	pacstrap /mnt base base-devel
 	genfstab -U /mnt >> /mnt/etc/fstab
-	cp AutoInstall /mnt
+	cp AutoInstall /mnt/home
 	echo -e "\n\nCtrl+C if something was wrong" ; sleep 10
 	arch-chroot /mnt
 }
