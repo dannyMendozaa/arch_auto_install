@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # This is an auomated script to install archlinux minimal (dual boot MS-Windows).
-# Internal use
+# Personal use.	
 
 part_one(){
 	# Set latinamrican keyboard.
