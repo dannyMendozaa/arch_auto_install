@@ -57,7 +57,7 @@ part_one(){
 }
 part_two(){
 	# Time zone
-	pacman -Sy vim --noconfirm
+	pacman -Sy vim intel-ucode iw wpa_supplicant networkmanager dialog terminus-font git wget openssh --noconfirm
 	ln -sf /usr/share/zoneinfo/America/Mexico_city /etc/localtime
 	hwclock --systohc
 	sed -i 's/^#en_US/en_US/'  /etc/locale.gen
@@ -80,9 +80,8 @@ part_two(){
 	passwd
 	rm -f /boot/loader/loader.conf
 	echo -e "default\tarch\ntimeout\t5" > /boot/loader/loader.conf
-	uuid=$(blkid | grep /dev/mapper/cryptlvm | awk {'print $3'} | sed -e 's/"//g')
-	echo -e "title GNU/Linux Arch linux D@nNix\nlinux /vmlinuz-linux\ninitrd /intel-ucode.img\ninitrd /initramfs-linux.img\noptions cryptdevice=UUID=${uuid}:archlvm\nroot=/dev/mapper/cryptroot_lvm rw" > /boot/loader/entries/arch.conf
-	pacman -Sy intel-ucode iw wpa_supplicant networkmanager dialog terminus-font git wget openssh --noconfirm
+	uuid=$(blkid | grep /dev/sda5 | awk {'print $2'} | sed -e 's/"//g')
+	echo -e "title GNU/Linux Arch linux D@nNix\nlinux /vmlinuz-linux\ninitrd /intel-ucode.img\ninitrd /initramfs-linux.img\noptions cryptdevice=${uuid}:cryptlvm root=/dev/archlvm/cryptroot_lvm rw" > /boot/loader/entries/arch.conf
 }
 
 quit(){
