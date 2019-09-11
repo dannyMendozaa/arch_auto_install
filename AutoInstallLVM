@@ -1,0 +1,108 @@
+#!/usr/bin/env bash
+
+# This is an auomated script to install archlinux minimal (dual boot MS-Windows).
+# Personal use.	
+# Entire Disk
+
+part_one(){
+	# Set latinamrican keyboard.
+	loadkeys la-latin1
+	## Check internet connection.
+	internet=$(ping archlinux.org -c1 | grep -wo "1 packets")
+	if [[ -n $internet ]] ; then
+		clear
+		echo -e "Internet connection working :)\n"
+		sleep 0.5
+	else
+		echo -e "Internet conection does not work :(\n"
+		wifi-menu
+	fi
+	# Update system clock
+	timedatectl set-ntp true
+	# Install a bigger font
+	pacman -Sy terminus-font --noconfirm
+	setfont ter-v32b
+	## Sort servers rank for speed
+	pacman -Sy pacman-rankmirros --noconfirm
+	pacman -Sy pacman-contrib --noconfirm
+	rm -f /etc/pacman.d/mirrorlist --noconfirm
+	# Get the mirrorlist directly from the website.
+	curl -o /etc/pacman.d/mirrorlist https://www.archlinux.org/mirrorlist/all/
+	cp /etc/pacman.d/mirrorlist /etc/pacman.d/mirrorlist.back
+	sed -i 's/^#Server/Server/' /etc/pacman.d/mirrorlist.back
+	nohup rankmirrors -n 6 /etc/pacman.d/mirrorlist.back > /etc/pacman.d/mirrorlist &
+	pid=$!
+	parted /dev/sda
+	parted /dev/sda set 3 lvm on
+	parted /dev/sda print
+	pvcreate /dev/sda3
+	vgcreate arch-lvm /dev/sda3
+	lvcreate -n arch-root -L 30G arch-lvm
+	lvcreate -n arch-swap -L 2G arch-lvm
+	lvcreate -n arch-home -l 100%FREE arch-lvm
+	lvs && sleep 5
+	mkfs.fat -F32 /dev/sda1
+	mkfs.ext2 /dev/sda2
+	mkfs.btrfs -L root /dev/arch-lvm/arch-root
+	mkfs.btrfs -L home /dev/arch-lvm/arch-home
+	mkswap /dev/arch-lvm/arch-swap
+	swapon /dev/arch-lvm/arch-swap
+	mount /dev/arch-lvm/arch-root /mnt
+	mkdir /mnt/{boot,home}
+	mount /dev/sda2 /mnt/boot
+	mkdir /mnt/boot/efi
+	mount /dev/sda1 /mnt/boot/efi
+	mount /dev/arch-lvm/arch-home /mnt/home
+	wait $pid
+	pacstrap /mnt base base-devel efibootmgr vim btrfs-progs --noconfirm
+	genfstab -U -p /mnt >> /mnt/etc/fstab
+	cp AutoInstall /mnt/home
+	echo -e "\n\nCtrl+C if something was wrong" ; sleep 10
+	arch-chroot /mnt
+}
+part_two(){
+	# Time zone
+	pacman -Sy vim intel-ucode iw wpa_supplicant networkmanager dialog terminus-font git wget openssh --noconfirm
+	ln -sf /usr/share/zoneinfo/America/Mexico_city /etc/localtime
+	hwclock --systohc
+	sed -i 's/^#en_US/en_US/'  /etc/locale.gen
+	sed -i 's/^#es_MX/es_MX/'  /etc/locale.gen
+	locale-gen
+	echo "LANG=en_US.UTF-8" > /etc/locale.conf
+	echo -e  "KEYMAP=la-latin1\nFONT=ter-v20b" > /etc/vconsole.conf
+	clear
+	read -p "Ingresa el nombre del equipo: " hostNAME
+	echo "$hostNAME" > /etc/hostname
+	rm -f /etc/hosts
+	echo -e "127.0.0.1\tlocalhost\n::1\t\tlocalhost\n127.0.1.1\t${hostNAME}.localdomain\t$hostNAME" > /etc/hosts
+	echo -e "\n### Edit the file and insert lvm2 between block and filesystems" >> /etc/mkinitcpio.conf
+	echo -e "### HOOKS=(base udev autodetect keyboard keymap consolefont modconf block lvm2 encrypt filesystems fsck)" >> /etc/mkinitcpio.conf
+	vim /etc/mkinitcpio.conf
+	mkinitcpio -p linux
+	bootctl install
+	clear
+	echo "Enter the root password"
+	passwd
+	rm -f /boot/loader/loader.conf
+	echo -e "default\tarch\ntimeout\t5" > /boot/loader/loader.conf
+	uuid=$(blkid | grep /dev/sda5 | awk {'print $2'} | sed -e 's/"//g')
+	echo -e "title GNU/Linux Arch linux D@nNix\nlinux /vmlinuz-linux\ninitrd /intel-ucode.img\ninitrd /initramfs-linux.img\noptions cryptdevice=${uuid}:cryptlvm root=/dev/archlvm/cryptroot_lvm rw" > /boot/loader/entries/arch.conf
+}
+
+quit(){
+	clear
+	exit 0
+}
+
+main(){
+	clear
+	echo -e "1) First config\n2) Inside the new sys"
+	read -p "ingresa una opción: " opt
+	case $opt in
+		1)	part_one ;;
+		2)	part_two ;;
+		3)	quit	 ;;
+		*) 	echo "opcion no valida" ;;
+	esac
+}
+main
