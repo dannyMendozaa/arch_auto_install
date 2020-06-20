@@ -36,8 +36,8 @@ part_one(){
 		mklabel gpt \
 		mkpart primary fat32 1MiB 513MiB \
 		mkpart primary ext4 513MiB 100% \
-		set 1 esp on
-	exit 0
+		set 1 esp on \
+		set 2 lvm on
 	cryptsetup luksFormat /dev/sda2
 	cryptsetup open /dev/sda2 cryptlvm
 	pvcreate /dev/mapper/cryptlvm
@@ -46,6 +46,7 @@ part_one(){
 	lvcreate -L 8G archlvm -n cryptswap_lvm
 	lvcreate -l 100%FREE archlvm -n crypthome_lvm
 	# encrypt root partition
+	mkfs.vfat -F32 /dev/sdb1 -n "EFIBOOT"
 	mkfs.ext4 /dev/archlvm/cryptroot_lvm -L "root_arch"
 	mkfs.ext4 /dev/archlvm/crypthome_lvm -L "home_arch"
 	mkswap /dev/archlvm/cryptswap_lvm -L "swap_arch"
