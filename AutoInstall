@@ -3,6 +3,13 @@
 # This is an auomated script to install archlinux minimal.
 # Personal use.	
 
+part_cero(){
+	pacman -Sy git
+	git clone https://github.com/dannyMendoza/arch_auto_install
+	git config --global user.email 'daniel.mendoza@alumnos.udg.mx'
+	git config --global user.name 'dannyMendoza'
+}
+
 part_one(){
 	# Set latinamrican keyboard.
 	loadkeys la-latin1
