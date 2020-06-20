@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 
-# This is an auomated script to install archlinux minimal (dual boot MS-Windows).
+# This is an auomated script to install archlinux minimal.
 # Personal use.	
 
 part_one(){
 	# Set latinamrican keyboard.
 	loadkeys la-latin1
 	## Check internet connection.
-	internet=$(ping archlinux.org -c1 | grep -wo "1 packets")
+	internet=$(ping -c1 archlinux.org | grep -wo "1 packets")
 	if [[ -n $internet ]] ; then
 		clear
 		echo -e "Internet connection working :)\n"
@@ -20,51 +20,57 @@ part_one(){
 	timedatectl set-ntp true
 	# Install a bigger font
 	pacman -Sy terminus-font --noconfirm
-	setfont ter-v20b
+	setfont ter-v32b
 	## Sort servers rank for speed
-	pacman -Sy pacman-rankmirros --noconfirm
+	pacman -Sy pacman-mirrorlist --noconfirm
 	pacman -Sy pacman-contrib --noconfirm
-	rm -f /etc/pacman.d/mirrorlist --noconfirm
+	rm -f /etc/pacman.d/mirrorlist
 	# Get the mirrorlist directly from the website.
 	curl -o /etc/pacman.d/mirrorlist https://www.archlinux.org/mirrorlist/all/
 	cp /etc/pacman.d/mirrorlist /etc/pacman.d/mirrorlist.back
 	sed -i 's/^#Server/Server/' /etc/pacman.d/mirrorlist.back
-	nohup rankmirrors -n 6 /etc/pacman.d/mirrorlist.back > /etc/pacman.d/mirrorlist &
+	rankmirrors -n 6 /etc/pacman.d/mirrorlist.back > /etc/pacman.d/mirrorlist &
 	pid=$!
-	# cgdisk /dev/sda
-	cryptsetup luksFormat /dev/sda5
-	cryptsetup open /dev/sda5 cryptlvm
+	## Partioning
+	parted --script /dev/sda \
+		mklabel gpt \
+		mkpart primary fat32 1MiB 513MiB \
+		mkpart primary ext4 513MiB 100% \
+		set 1 esp on
+	exit 0
+	cryptsetup luksFormat /dev/sda2
+	cryptsetup open /dev/sda2 cryptlvm
 	pvcreate /dev/mapper/cryptlvm
 	vgcreate archlvm /dev/mapper/cryptlvm
-	lvcreate -L 80G archlvm -n cryptroot_lvm
-	lvcreate -L 4G archlvm -n cryptswap_lvm
+	lvcreate -L 280G archlvm -n cryptroot_lvm
+	lvcreate -L 8G archlvm -n cryptswap_lvm
 	lvcreate -l 100%FREE archlvm -n crypthome_lvm
 	# encrypt root partition
-	mkfs.ext4 /dev/archlvm/cryptroot_lvm -L "crypt_root"
+	mkfs.ext4 /dev/archlvm/cryptroot_lvm -L "root_arch"
 	mkfs.ext4 /dev/archlvm/crypthome_lvm -L "home_arch"
 	mkswap /dev/archlvm/cryptswap_lvm -L "swap_arch"
 	mount /dev/archlvm/cryptroot_lvm /mnt
 	mkdir /mnt/{boot,home}
-	mount /dev/sda2 /mnt/boot
+	mount /dev/sda1 /mnt/boot
 	mount /dev/archlvm/crypthome_lvm /mnt/home
 	swapon /dev/archlvm/cryptswap_lvm
 	wait $pid
-	pacstrap /mnt base base-devel
-	genfstab -U /mnt >> /mnt/etc/fstab
+	pacstrap /mnt base base-devel linux linux-firmware vim
+	genfstab -p -U /mnt >> /mnt/etc/fstab
 	cp AutoInstall /mnt/home
 	echo -e "\n\nCtrl+C if something was wrong" ; sleep 10
 	arch-chroot /mnt
 }
 part_two(){
 	# Time zone
-	pacman -Sy vim intel-ucode iw wpa_supplicant networkmanager dialog terminus-font git wget openssh --noconfirm
+	pacman -Sy vim intel-ucode iw wpa_supplicant networkmanager dialog terminus-font git wget openssh zsh zsh-completions zsh-syntax-highlighting zsh-autosuggestions --noconfirm
 	ln -sf /usr/share/zoneinfo/America/Mexico_city /etc/localtime
 	hwclock --systohc
 	sed -i 's/^#en_US/en_US/'  /etc/locale.gen
 	sed -i 's/^#es_MX/es_MX/'  /etc/locale.gen
 	locale-gen
 	echo "LANG=en_US.UTF-8" > /etc/locale.conf
-	echo -e  "KEYMAP=la-latin1\nFONT=ter-v20b" > /etc/vconsole.conf
+	echo -e  "KEYMAP=la-latin1\nFONT=ter-v16b" > /etc/vconsole.conf
 	clear
 	read -p "Ingresa el nombre del equipo: " hostNAME
 	echo "$hostNAME" > /etc/hostname
@@ -80,7 +86,7 @@ part_two(){
 	passwd
 	rm -f /boot/loader/loader.conf
 	echo -e "default\tarch\ntimeout\t5" > /boot/loader/loader.conf
-	uuid=$(blkid | grep /dev/sda5 | awk {'print $2'} | sed -e 's/"//g')
+	uuid=$(blkid | grep /dev/sda2 | awk {'print $2'} | sed -e 's/"//g')
 	echo -e "title GNU/Linux Arch linux D@nNix\nlinux /vmlinuz-linux\ninitrd /intel-ucode.img\ninitrd /initramfs-linux.img\noptions cryptdevice=${uuid}:cryptlvm root=/dev/archlvm/cryptroot_lvm rw" > /boot/loader/entries/arch.conf
 }
 
