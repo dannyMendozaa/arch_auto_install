@@ -4,8 +4,6 @@
 # Personal use.	
 
 part_cero(){
-	pacman -Sy git
-	git clone https://github.com/dannyMendoza/arch_auto_install
 	git config --global user.email 'daniel.mendoza@alumnos.udg.mx'
 	git config --global user.name 'dannyMendoza'
 }
@@ -53,7 +51,7 @@ part_one(){
 	lvcreate -L 8G archlvm -n cryptswap_lvm
 	lvcreate -l 100%FREE archlvm -n crypthome_lvm
 	# encrypt root partition
-	mkfs.vfat -F32 /dev/sdb1 -n "EFIBOOT"
+	mkfs.vfat -F32 /dev/sda1 -n "EFIBOOT"
 	mkfs.ext4 /dev/archlvm/cryptroot_lvm -L "root_arch"
 	mkfs.ext4 /dev/archlvm/crypthome_lvm -L "home_arch"
 	mkswap /dev/archlvm/cryptswap_lvm -L "swap_arch"
@@ -63,7 +61,7 @@ part_one(){
 	mount /dev/archlvm/crypthome_lvm /mnt/home
 	swapon /dev/archlvm/cryptswap_lvm
 	wait $pid
-	pacstrap /mnt base base-devel linux linux-firmware vim
+	pacstrap /mnt base base-devel linux linux-firmware man-db man-pages texinfo dialog ethtool ddrescue hdparam netctl openssh wget
 	genfstab -p -U /mnt >> /mnt/etc/fstab
 	cp AutoInstall /mnt/home
 	echo -e "\n\nCtrl+C if something was wrong" ; sleep 10
@@ -71,7 +69,7 @@ part_one(){
 }
 part_two(){
 	# Time zone
-	pacman -Sy vim intel-ucode iw wpa_supplicant networkmanager dialog terminus-font git wget openssh zsh zsh-completions zsh-syntax-highlighting zsh-autosuggestions --noconfirm
+	pacman -Sy lvm2 vim intel-ucode iw wpa_supplicant networkmanager dialog terminus-font git wget openssh zsh zsh-completions zsh-syntax-highlighting zsh-autosuggestions xf86-video-intel --noconfirm
 	ln -sf /usr/share/zoneinfo/America/Mexico_city /etc/localtime
 	hwclock --systohc
 	sed -i 's/^#en_US/en_US/'  /etc/locale.gen
@@ -84,9 +82,8 @@ part_two(){
 	echo "$hostNAME" > /etc/hostname
 	rm -f /etc/hosts
 	echo -e "127.0.0.1\tlocalhost\n::1\t\tlocalhost\n127.0.1.1\t${hostNAME}.localdomain\t$hostNAME" > /etc/hosts
-	echo -e "\n### Edit the file and insert lvm2 between block and filesystems" >> /etc/mkinitcpio.conf
-	echo -e "### HOOKS=(base udev autodetect keyboard keymap consolefont modconf block lvm2 encrypt filesystems fsck)" >> /etc/mkinitcpio.conf
-	vim /etc/mkinitcpio.conf
+	grep -w "^HOOKS" /etc/mkinitcpio.conf | sed -ni 's/block/block lvm2 encrypt' /etc/mkinitcpio.conf
+	clear ; grep -w "^HOOKS" | sleep 5 
 	mkinitcpio -p linux
 	bootctl install
 	clear
@@ -97,6 +94,38 @@ part_two(){
 	uuid=$(blkid | grep /dev/sda2 | awk {'print $2'} | sed -e 's/"//g')
 	echo -e "title GNU/Linux Arch linux D@nNix\nlinux /vmlinuz-linux\ninitrd /intel-ucode.img\ninitrd /initramfs-linux.img\noptions cryptdevice=${uuid}:cryptlvm root=/dev/archlvm/cryptroot_lvm rw" > /boot/loader/entries/arch.conf
 }
+part_three(){
+	pacman -Syu bspwm sxhkd xorg xorg-apps xorg-xinit xdg-user-dirs alsa alsa-{firmware,lib,oss,plugins,tools,topology-conf,ucm-conf,utils} terminus-{font,font-otb} numlockx libinput xterm urxvt-perls rxvt-{unicode,unicode-terminfo} git wget curl --noconfirm
+	clear
+	read -p "Nombre de usuario: " username 
+	read -p "Ingresa el tipo de shell (bash or zsh): " sheelselected 
+	while [[ ! "${shellselected}" =~ (bash|zsh) ]]; do
+		read -p "Ingresa el tipo de shell (bash or zsh): " shellselected 
+	done
+	useradd -m -G adm,ftp,games,http,log,rfkill,sys,systemd-journal,uucp,wheel,dbus,kmem,lp,mail,proc,root,tty,utmp,disk,floppy,input,kvm,optical,scanner,storage,video,network,power,uuidd,users -s /bin/${shellselected} "${username}"
+	xdg-user-dirs-update
+	mkdir -p DATA DESK DOWN MOVS PICS PUBL TEMP
+	rm -rvf /home/"${username}"/.config/user-dirs.dirs
+	rm -rvf /home/"${username}"/*
+	echo -e "XDG_DESKTOP_DIR=\"$HOME/DESK\"\n\
+		XDG_DOWNLOAD_DIR=\"$HOME/DOWS\"\n\
+		XDG_TEMPLATES_DIR=\"$HOME/TEMP\"\n\
+		XDG_PUBLICSHARE_DIR=\"$HOME/PUBL\"\n\
+		XDG_DOCUMENTS_DIR=\"$HOME/DATA\"\n\
+		XDG_MUSIC_DIR=\"$HOME/MUSC\"\n\
+		XDG_PICTURES_DIR=\"$HOME/PICS\"\n\
+		XDG_VIDEOS_DIR=\"$HOME/MOVS\"" >> /home/"${username}"/.config/user-dirs.dirs
+	xdg-user-dirs-update
+	mkdir -p /home/"${username}"/.config/{bspwm,sxhkd}
+	cp -v /usr/share/doc/bspwm/examples/bspwmrc /home/"${username}"/.config/bspwm/
+	cp -v /usr/share/doc/bspwm/examples/sxhkdrc /home/"${username}"/.config/sxhkd/
+	sed -ni 's/xterm -bg white -fg black -fn "-xos4-terminus-bold-r-normal--32-320-72-72-c-160-iso10646-1" -bd black -cr white/' /home/"${username}"/.config/sxhkdrc/sxhkdrc
+	chmod +x /home/"${username}"/.config/bspwm/bspwmrc
+	cp -v /etc/X11/xinit/xinitrc /home/"${username}"/.xinitrc
+	sed -ni '/^$/d' /home/"${username}"/.xinitrc
+	sed -ni '/twm/,$d' /home/"${username}"/.xinitrc
+	echo "exec bspwm 2>&1" >> /home/"${username}"/.xinitrc
+}
 
 quit(){
 	clear
@@ -105,9 +134,10 @@ quit(){
 
 main(){
 	clear
-	echo -e "1) First config\n2) Inside the new sys"
+	echo -e "0) GIT Personal Config\n1) First Config\n2) Inside the new sys"
 	read -p "ingresa una opción: " opt
 	case $opt in
+		0)	part_cero ;;
 		1)	part_one ;;
 		2)	part_two ;;
 		3)	quit	 ;;
