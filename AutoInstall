@@ -104,6 +104,7 @@ part_two(){
 	sed -ni '$s/^# %wheel/%wheel/' /etc/sudoers
 }
 part_three(){
+	username="$(whoami)"
 	sudo pacman -Syu bspwm sxhkd xorg xorg-apps xorg-xinit xdg-user-dirs alsa alsa-{firmware,lib,oss,plugins,tools,topology-conf,ucm-conf,utils} terminus-{font,font-otb} numlockx libinput xterm urxvt-perls rxvt-{unicode,unicode-terminfo} git wget curl chromium  ntfs-3g --noconfirm
 	clear
 	xdg-user-dirs-update
