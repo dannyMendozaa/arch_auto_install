@@ -67,6 +67,7 @@ part_one(){
 	echo -e "\n\nCtrl+C if something was wrong" ; sleep 10
 	arch-chroot /mnt
 }
+
 part_two(){
 	# Time zone
 	pacman -Sy lvm2 vim sed intel-ucode iw wpa_supplicant networkmanager dialog terminus-font git wget openssh zsh zsh-completions zsh-syntax-highlighting zsh-autosuggestions xf86-video-intel --noconfirm
@@ -93,7 +94,7 @@ part_two(){
 	echo -e "default\tarch\ntimeout\t5" > /boot/loader/loader.conf
 	uuid=$(blkid | grep /dev/sda2 | awk {'print $2'} | sed -e 's/"//g')
 	echo -e "title GNU/Linux Arch linux D@nNix\nlinux /vmlinuz-linux\ninitrd /intel-ucode.img\ninitrd /initramfs-linux.img\noptions cryptdevice=${uuid}:cryptlvm root=/dev/archlvm/cryptroot_lvm rw" > /boot/loader/entries/arch.conf
-	read -p "User name: " username 
+	read -p "Add User name: " username 
 	read -p "Type shell to use (bash or zsh): " shellselected 
 	while [[ ! "${shellselected}" =~ (bash|zsh) ]]; do
 		read -p "shell must be (bash or zsh): " shellselected 
@@ -103,9 +104,25 @@ part_two(){
 	passwd "${username}"
 	sed -i '$s/^# %wheel/%wheel/' /etc/sudoers
 }
+
 part_three(){
 	username="$(whoami)"
-	sudo pacman -Syu bspwm sxhkd xorg xorg-apps xorg-xinit xdg-user-dirs alsa alsa-{firmware,lib,oss,plugins,tools,topology-conf,ucm-conf,utils} terminus-{font,font-otb} numlockx libinput xterm urxvt-perls rxvt-{unicode,unicode-terminfo} git wget curl chromium  ntfs-3g --noconfirm
+	sudo pacman -Syu bspwm sxhkd xorg xorg-apps xorg-xinit xdg-user-dirs\
+		alsa alsa-{firmware,lib,oss,plugins,tools,topology-conf,ucm-conf,utils}\
+		terminus-{font,font-otb} numlockx libinput xterm urxvt-perls rxvt-{unicode,unicode-terminfo}\
+		git wget curl chromium  ntfs-3g mlocate ttf-bitstream-vera font-bh-ttf ttf-croscore\
+		ttf-dejavu ttf-droid ttf-roboto noto-fonts ttf-liberation ttf-ibm-plex ttf-ubuntu-font-family\
+		ttf-anonymous-pro ttf-cascadia-code ttf-fantasque-sans-mono otf-fantasque-sans-mono\
+		ttf-fira-mono otf-fira-mono ttf-fira-code gnu-free-fonts ttf-hack\
+		inter-font ttf-linux-libertine adobe-source-sans-pro-fonts ttf-linux-libertine\
+		xorg-fonts-type1 noto-fonts-emoji ttf-joypixels font-mathematica texlive-core\
+		texlive-fontsextra otf-latin-modern otf-latinmodern-math lxappearance flashplugin\
+		pepper-flash --noconfirm
+	sudo updatedb
+	amixer sset Master unmute
+	amixer sset Speaker unmute
+	amixer sset Headphone unmute
+	echo "defaults.pcm.rate_converter \"speexrate_medium\"" >> ~/.asoundrc
 	clear
 	xdg-user-dirs-update
 	rm -rvf /home/"${username}"/.config/user-dirs.dirs ; sleep 2
@@ -129,7 +146,27 @@ part_three(){
 	cp -v /etc/X11/xinit/xinitrc /home/"${username}"/.xinitrc
 	sed -i '/^$/d' /home/"${username}"/.xinitrc
 	sed -i '/^twm/,$d' /home/"${username}"/.xinitrc
+	sudo sed -i 's/^#HandleLid/HandleLid/g' /etc/systemd/logind.conf
 	echo "exec bspwm 2>&1" >> /home/"${username}"/.xinitrc
+	cd $HOME/DOWN && git clone https://aur.archlinux.org/yay.git
+	cd $HOME/DOWN/yay && sudo makepkg -si --noconfirm
+	rm -rfv $HOME/DOWN/yay
+	yay -Syu --devel --timeupdate --noconfirm
+	yay -S ttf-google-fonts-git --noconfirm
+	cd $HOME/.config/ && git clone https://git.suckless.org/dmenu
+	cd $HOME/.config/dmenu/ && make && sudo make
+	echo -e "Section \"InputClass\"\
+		\n\tIdentifier \"libinput touchpad catchall\"\
+        \n\tMatchIsTouchpad \"on\"\
+        \n\tMatchDevicePath \"/dev/input/event*\"\
+        \n\tOption \"Tapping\" \"1\"\
+        \n\tOption \"ClickMethod\" \"clickfinger\"\
+        \n\tOption \"DisableWhileTyping\" \"1\"\
+        \n\tOption \"TappingButtonMap\" \"lrm\"\
+        \n\tOption \"NaturalScrolling\" \"1\"\
+        \n\tDriver \"libinput\"\
+        \nEndSection" >> $HOME/30-touchpad.conf
+	sudo mv $HOME/30-touchpad.conf /etc/X11/xorg.conf.d/
 }
 
 quit(){
@@ -139,11 +176,12 @@ quit(){
 
 main(){
 	clear
-	echo -e "\n0) GIT Personal Config\
-		\n1) First Config\
-		\n2) Inside the new sys\
-		\n3) Do not run as root user\
-		\n4) Quit\n"
+	echo -e "GNU/Linux ARCHLINUX Installation\
+		\n\n\t0) GIT Personal Config\
+		\n\t1) First Config\
+		\n\t2) Inside the new sys\
+		\n\t3) Do not run as root user\
+		\n\t4) Quit\n"
 	read -p "ingresa una opción: " opt
 	case $opt in
 		0)	part_cero  ;;
@@ -154,4 +192,5 @@ main(){
 		*) 	echo "opcion no valida" ;;
 	esac
 }
+
 main
