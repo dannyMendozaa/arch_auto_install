@@ -101,7 +101,7 @@ part_two(){
 	useradd -m -G adm,ftp,games,http,log,rfkill,sys,systemd-journal,uucp,wheel,dbus,kmem,lp,mail,proc,root,tty,utmp,disk,floppy,input,kvm,optical,scanner,storage,video,network,power,uuidd,users -s /bin/"${shellselected}" "${username}"
 	echo "Enter the ${username} password"
 	passwd "${username}"
-	sed -ni '$s/^# %wheel/%wheel/' /etc/sudoers
+	sed -i '$s/^# %wheel/%wheel/' /etc/sudoers
 }
 part_three(){
 	username="$(whoami)"
@@ -110,7 +110,7 @@ part_three(){
 	xdg-user-dirs-update
 	rm -rvf /home/"${username}"/.config/user-dirs.dirs ; sleep 2
 	rm -rvf /home/"${username}"/*
-	mkdir -p DATA DESK DOWN MOVS PICS PUBL TEMP MUSC
+	mkdir -p /home/"${username}"/{DATA,DESK,DOWN,MOVS,PICS,PUBL,TEMP,MUSC}
 	echo -e "XDG_DESKTOP_DIR=\"$HOME/DESK\"\
 		\nXDG_DOWNLOAD_DIR=\"$HOME/DOWN\"\
 		\nXDG_TEMPLATES_DIR=\"$HOME/TEMP\"\
@@ -123,11 +123,12 @@ part_three(){
 	mkdir -p /home/"${username}"/.config/{bspwm,sxhkd}
 	cp -v /usr/share/doc/bspwm/examples/bspwmrc /home/"${username}"/.config/bspwm/
 	cp -v /usr/share/doc/bspwm/examples/sxhkdrc /home/"${username}"/.config/sxhkd/
-	sed -ni 's/xterm -bg white -fg black -fn "-xos4-terminus-bold-r-normal--32-320-72-72-c-160-iso10646-1" -bd black -cr white/' /home/"${username}"/.config/sxhkd/sxhkdrc
+	cat /home/"${username}"/.config/sxhkd/sxhkdrc
+	sed -i 's/urxvt/xterm -bg white -fg black -fn "-xos4-terminus-bold-r-normal--32-320-72-72-c-160-iso10646-1" -bd black -cr white/' /home/"${username}"/.config/sxhkd/sxhkdrc
 	chmod +x /home/"${username}"/.config/bspwm/bspwmrc
 	cp -v /etc/X11/xinit/xinitrc /home/"${username}"/.xinitrc
-	sed -ni '/^$/d' /home/"${username}"/.xinitrc
-	sed -ni '/twm/,$d' /home/"${username}"/.xinitrc
+	sed -i '/^$/d' /home/"${username}"/.xinitrc
+	sed -i '/^twm/,$d' /home/"${username}"/.xinitrc
 	echo "exec bspwm 2>&1" >> /home/"${username}"/.xinitrc
 }
 
@@ -138,11 +139,11 @@ quit(){
 
 main(){
 	clear
-	echo -e "\n0) GIT Personal Config\n\
+	echo -e "\n0) GIT Personal Config\
 		\n1) First Config\
 		\n2) Inside the new sys\
 		\n3) Do not run as root user\
-		\n3) Quit"
+		\n4) Quit\n"
 	read -p "ingresa una opción: " opt
 	case $opt in
 		0)	part_cero  ;;
