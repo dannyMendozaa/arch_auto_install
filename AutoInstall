@@ -111,14 +111,14 @@ part_three(){
 	rm -rvf /home/"${username}"/.config/user-dirs.dirs ; sleep 2
 	rm -rvf /home/"${username}"/*
 	mkdir -p DATA DESK DOWN MOVS PICS PUBL TEMP MUSC
-	echo -e "XDG_DESKTOP_DIR=\"$HOME/DESK\"\n\
-		XDG_DOWNLOAD_DIR=\"$HOME/DOWN\"\n\
-		XDG_TEMPLATES_DIR=\"$HOME/TEMP\"\n\
-		XDG_PUBLICSHARE_DIR=\"$HOME/PUBL\"\n\
-		XDG_DOCUMENTS_DIR=\"$HOME/DATA\"\n\
-		XDG_MUSIC_DIR=\"$HOME/MUSC\"\n\
-		XDG_PICTURES_DIR=\"$HOME/PICS\"\n\
-		XDG_VIDEOS_DIR=\"$HOME/MOVS\"" >> /home/"${username}"/.config/user-dirs.dirs
+	echo -e "XDG_DESKTOP_DIR=\"$HOME/DESK\"\
+		\nXDG_DOWNLOAD_DIR=\"$HOME/DOWN\"\
+		\nXDG_TEMPLATES_DIR=\"$HOME/TEMP\"\
+		\nXDG_PUBLICSHARE_DIR=\"$HOME/PUBL\"\
+		\nXDG_DOCUMENTS_DIR=\"$HOME/DATA\"\
+		\nXDG_MUSIC_DIR=\"$HOME/MUSC\"\
+		\nXDG_PICTURES_DIR=\"$HOME/PICS\"\
+		\nXDG_VIDEOS_DIR=\"$HOME/MOVS\"" >> /home/"${username}"/.config/user-dirs.dirs
 	xdg-user-dirs-update
 	mkdir -p /home/"${username}"/.config/{bspwm,sxhkd}
 	cp -v /usr/share/doc/bspwm/examples/bspwmrc /home/"${username}"/.config/bspwm/
@@ -138,10 +138,11 @@ quit(){
 
 main(){
 	clear
-	echo -e "\n\t0) GIT Personal Config\n\
-		\t1) First Config\n\
-		\t2) Inside the new sys\n\
-		\t3) Do not run as root user"
+	echo -e "\n0) GIT Personal Config\n\
+		\n1) First Config\
+		\n2) Inside the new sys\
+		\n3) Do not run as root user\
+		\n3) Quit"
 	read -p "ingresa una opción: " opt
 	case $opt in
 		0)	part_cero  ;;
