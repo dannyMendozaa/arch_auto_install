@@ -93,10 +93,10 @@ part_two(){
 	echo -e "default\tarch\ntimeout\t5" > /boot/loader/loader.conf
 	uuid=$(blkid | grep /dev/sda2 | awk {'print $2'} | sed -e 's/"//g')
 	echo -e "title GNU/Linux Arch linux D@nNix\nlinux /vmlinuz-linux\ninitrd /intel-ucode.img\ninitrd /initramfs-linux.img\noptions cryptdevice=${uuid}:cryptlvm root=/dev/archlvm/cryptroot_lvm rw" > /boot/loader/entries/arch.conf
-	read -p "Nombre de usuario: " username 
-	read -p "Ingresa el tipo de shell (bash or zsh): " sheelselected 
+	read -p "User name: " username 
+	read -p "Type shell to use (bash or zsh): " shellselected 
 	while [[ ! "${shellselected}" =~ (bash|zsh) ]]; do
-		read -p "Ingresa el tipo de shell (bash or zsh): " shellselected 
+		read -p "shell must be (bash or zsh): " shellselected 
 	done
 	useradd -m -G adm,ftp,games,http,log,rfkill,sys,systemd-journal,uucp,wheel,dbus,kmem,lp,mail,proc,root,tty,utmp,disk,floppy,input,kvm,optical,scanner,storage,video,network,power,uuidd,users -s /bin/"${shellselected}" "${username}"
 	echo "Enter the ${username} password"
@@ -107,11 +107,11 @@ part_three(){
 	sudo pacman -Syu bspwm sxhkd xorg xorg-apps xorg-xinit xdg-user-dirs alsa alsa-{firmware,lib,oss,plugins,tools,topology-conf,ucm-conf,utils} terminus-{font,font-otb} numlockx libinput xterm urxvt-perls rxvt-{unicode,unicode-terminfo} git wget curl chromium  --noconfirm
 	clear
 	xdg-user-dirs-update
-	mkdir -p DATA DESK DOWN MOVS PICS PUBL TEMP
-	rm -rvf /home/"${username}"/.config/user-dirs.dirs
+	rm -rvf /home/"${username}"/.config/user-dirs.dirs ; sleep 2
 	rm -rvf /home/"${username}"/*
+	mkdir -p DATA DESK DOWN MOVS PICS PUBL TEMP MUSC
 	echo -e "XDG_DESKTOP_DIR=\"$HOME/DESK\"\n\
-		XDG_DOWNLOAD_DIR=\"$HOME/DOWS\"\n\
+		XDG_DOWNLOAD_DIR=\"$HOME/DOWN\"\n\
 		XDG_TEMPLATES_DIR=\"$HOME/TEMP\"\n\
 		XDG_PUBLICSHARE_DIR=\"$HOME/PUBL\"\n\
 		XDG_DOCUMENTS_DIR=\"$HOME/DATA\"\n\
@@ -122,7 +122,7 @@ part_three(){
 	mkdir -p /home/"${username}"/.config/{bspwm,sxhkd}
 	cp -v /usr/share/doc/bspwm/examples/bspwmrc /home/"${username}"/.config/bspwm/
 	cp -v /usr/share/doc/bspwm/examples/sxhkdrc /home/"${username}"/.config/sxhkd/
-	sed -ni 's/xterm -bg white -fg black -fn "-xos4-terminus-bold-r-normal--32-320-72-72-c-160-iso10646-1" -bd black -cr white/' /home/"${username}"/.config/sxhkdrc/sxhkdrc
+	sed -ni 's/xterm -bg white -fg black -fn "-xos4-terminus-bold-r-normal--32-320-72-72-c-160-iso10646-1" -bd black -cr white/' /home/"${username}"/.config/sxhkd/sxhkdrc
 	chmod +x /home/"${username}"/.config/bspwm/bspwmrc
 	cp -v /etc/X11/xinit/xinitrc /home/"${username}"/.xinitrc
 	sed -ni '/^$/d' /home/"${username}"/.xinitrc
