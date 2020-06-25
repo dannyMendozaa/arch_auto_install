@@ -6,9 +6,11 @@
 part_cero(){
 	git config --global user.email 'daniel.mendoza@alumnos.udg.mx'
 	git config --global user.name 'dannyMendoza'
+	main
 }
 
 crypted(){
+	# encrypt root partition
 	cryptsetup luksFormat /dev/sda2
 	cryptsetup open /dev/sda2 cryptlvm
 	pvcreate /dev/mapper/cryptlvm
@@ -16,7 +18,6 @@ crypted(){
 	lvcreate -L 280G archlvm -n cryptroot_lvm
 	lvcreate -L 8G archlvm -n cryptswap_lvm
 	lvcreate -l 100%FREE archlvm -n crypthome_lvm
-	# encrypt root partition
 	mkfs.vfat -F32 /dev/sda1 -n "EFIBOOT"
 	mkfs.ext4 /dev/archlvm/cryptroot_lvm -L "root_arch"
 	mkfs.ext4 /dev/archlvm/crypthome_lvm -L "home_arch"
@@ -31,10 +32,9 @@ crypted(){
 not_crypted(){
 	pvcreate /dev/sda2
 	vgcreate archlvm /dev/sda2
-	lvcreate -L 280G archlvm -n root_lvm
-	lvcreate -L 8G archlvm -n swap_lvm
+	lvcreate -L 60G archlvm -n root_lvm
+	lvcreate -L 2G archlvm -n swap_lvm
 	lvcreate -l 100%FREE archlvm -n home_lvm
-	# encrypt root partition
 	mkfs.vfat -F32 /dev/sda1 -n "EFIBOOT"
 	mkfs.ext4 /dev/archlvm/root_lvm -L "root_arch"
 	mkfs.ext4 /dev/archlvm/home_lvm -L "home_arch"
@@ -45,6 +45,7 @@ not_crypted(){
 	mount /dev/archlvm/home_lvm /mnt/home
 	swapon /dev/archlvm/swap_lvm
 }
+
 part_one(){
 	# Set latinamrican keyboard.
 	loadkeys la-latin1
@@ -66,7 +67,7 @@ part_one(){
 	## Sort servers rank for speed
 	pacman -Sy pacman-mirrorlist --noconfirm
 	pacman -Sy pacman-contrib --noconfirm
-	rm -f /etc/pacman.d/mirrorlist
+	rm -vf /etc/pacman.d/mirrorlist
 	# Get the mirrorlist directly from the website.
 	curl -o /etc/pacman.d/mirrorlist https://www.archlinux.org/mirrorlist/all/
 	cp /etc/pacman.d/mirrorlist /etc/pacman.d/mirrorlist.back
@@ -88,7 +89,7 @@ part_one(){
 	[[ "${partdevice}" == "Yes" ]] && crypted
 	[[ "${partdevice}" == "No" ]] && not_crypted
 	wait $pid
-	pacstrap /mnt base base-devel linux linux-firmware man-db man-pages texinfo dialog ethtool ddrescue hdparam netctl openssh wget
+	pacstrap /mnt base base-devel linux linux-firmware man-db man-pages
 	genfstab -p -U /mnt >> /mnt/etc/fstab
 	cp AutoInstall /mnt/home
 	echo -e "\n\nCtrl+C if something was wrong" ; sleep 10
@@ -104,16 +105,12 @@ part_two(){
 	sed -i 's/^#es_MX/es_MX/'  /etc/locale.gen
 	locale-gen
 	echo "LANG=en_US.UTF-8" > /etc/locale.conf
-	echo -e  "KEYMAP=la-latin1\nFONT=ter-v16b" > /etc/vconsole.conf
+	echo -e  "KEYMAP=la-latin1\nFONT=ter-v24b" > /etc/vconsole.conf
 	clear
 	read -p "Ingresa el nombre del equipo: " hostNAME
 	echo "$hostNAME" > /etc/hostname
 	rm -f /etc/hosts
 	echo -e "127.0.0.1\tlocalhost\n::1\t\tlocalhost\n127.0.1.1\t${hostNAME}.localdomain\t$hostNAME" > /etc/hosts
-	grep -w "^HOOKS" /etc/mkinitcpio.conf | sed -ni 's/block/block lvm2 encrypt' /etc/mkinitcpio.conf
-	clear ; grep -w "^HOOKS" | sleep 5 
-	mkinitcpio -p linux
-	bootctl install
 	clear
 	echo "Enter the root password"
 	passwd
@@ -122,11 +119,17 @@ part_two(){
 
 	is_crypted="$(blkid /dev/sda2 | grep -i crypto)"
 	if [[ -n "${is_crypted}" ]] ; then
+		grep -w "^HOOKS" /etc/mkinitcpio.conf | sed -i 's/block/block lvm2 encrypt' /etc/mkinitcpio.conf
+		mkinitcpio -p linux
+		bootctl install
 		uuid=$(blkid | grep /dev/sda2 | awk {'print $2'} | sed -e 's/"//g')
 		echo -e "title GNU/Linux Arch linux D@nNix\nlinux /vmlinuz-linux\ninitrd /intel-ucode.img\ninitrd /initramfs-linux.img\noptions cryptdevice=${uuid}:cryptlvm root=/dev/archlvm/cryptroot_lvm rw" > /boot/loader/entries/arch.conf
 	else
-		uuid=$(blkid | grep /dev/archlvm/root_lvm | awk {'print $3'} | sed -e 's/"//g')
-		echo -e "title GNU/Linux Arch linux D@nNix\nlinux /vmlinuz-linux\ninitrd /intel-ucode.img\ninitrd /initramfs-linux.img\noptions root=${uuid} rw" > /boot/loader/entries/arch.conf
+		grep -w "^HOOKS" /etc/mkinitcpio.conf | sed -i 's/block/block lvm2' /etc/mkinitcpio.conf
+		mkinitcpio -p linux
+		bootctl install
+		uuid=$(blkid | grep /dev/mapper/archlvm-root_lvm | awk {'print $3'} | sed -e 's/"//g')
+		echo -e "title GNU/Linux Arch linux *Mendoza*\nlinux /vmlinuz-linux\ninitrd /intel-ucode.img\ninitrd /initramfs-linux.img\noptions root=${uuid} rw" > /boot/loader/entries/arch.conf
 	fi
 
 	read -p "Add User name: " username 
@@ -137,14 +140,14 @@ part_two(){
 	useradd -m -G adm,ftp,games,http,log,rfkill,sys,systemd-journal,uucp,wheel,dbus,kmem,lp,mail,proc,root,tty,utmp,disk,floppy,input,kvm,optical,scanner,storage,video,network,power,uuidd,users -s /bin/"${shellselected}" "${username}"
 	echo "Enter the ${username} password"
 	passwd "${username}"
-	sed -i '$s/^# %wheel/%wheel/' /etc/sudoers
+	sudo sed -i "$(sed -n '/^# %wheel/ =' /etc/sudoers | tail -n 1)"' s/^# %wheel/%wheel/' /etc/sudoers
 }
 
 part_three(){
 	username="$(whoami)"
 	sudo sed -i 's/^#\[\multilib\]/\[multilib\]/' /etc/pacman.conf
 	sudo sed -i "$(sed -n '/^#Include/ =' /etc/pacman.conf | tail -n 1)"' s/^#Include/Include/' /etc/pacman.conf
-	sudo pacman -Syu bspwm sxhkd xorg xorg-apps xorg-xinit xdg-user-dirs\
+	sudo pacman -Syyu bspwm sxhkd xorg xorg-apps xorg-xinit xdg-user-dirs\
 		alsa alsa-{firmware,lib,oss,plugins,tools,topology-conf,ucm-conf,utils}\
 		terminus-{font,font-otb} numlockx libinput xterm urxvt-perls rxvt-{unicode,unicode-terminfo}\
 		git wget curl chromium  ntfs-3g mlocate ttf-bitstream-vera font-bh-ttf ttf-croscore\
@@ -160,7 +163,6 @@ part_three(){
 	amixer sset Speaker unmute
 	amixer sset Headphone unmute
 	echo "defaults.pcm.rate_converter \"speexrate_medium\"" > ~/.asoundrc
-	clear
 	cp ~/AutoInstall ~/.Autoinstall
 	xdg-user-dirs-update
 	rm -rvf /home/"${username}"/.config/user-dirs.dirs ; sleep 2
@@ -192,7 +194,7 @@ part_three(){
 	yay -Syu --devel --timeupdate --noconfirm
 	yay -S ttf-google-fonts-git spotify --noconfirm
 	cd $HOME/.config/ && git clone https://git.suckless.org/dmenu
-	cd $HOME/.config/dmenu/ && make && sudo make
+	cd $HOME/.config/dmenu/ && make && sudo make install clean
 	echo -e "Section \"InputClass\"\
 		\n\tIdentifier \"libinput touchpad catchall\"\
         \n\tMatchIsTouchpad \"on\"\
@@ -216,19 +218,19 @@ quit(){
 main(){
 	clear
 	echo -e "GNU/Linux ARCHLINUX Installation\
-		\n\n\t0) GIT Personal Config\
-		\n\t1) First Config\
-		\n\t2) Inside the new sys\
-		\n\t3) Do not run as root user\
+		\n\n\t0) GIT personal config\
+		\n\t1) Partitioning and init setup\
+		\n\t2) Adding a root and user to new sys [arch-root]\
+		\n\t3) Installing X system and some other apps [Do not run as root user]\
 		\n\t4) Quit\n"
-	read -p "ingresa una opción: " opt
+	read -p "Choose an option: " opt
 	case $opt in
 		0)	part_cero  ;;
 		1)	part_one  ;;
 		2)	part_two  ;;
 		3)	part_three ;;
 		4)	quit ;;
-		*) 	echo "opcion no valida" ;;
+		*) 	echo "Option incorrect :("; sleep 2 && main ;;
 	esac
 }
 
