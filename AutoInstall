@@ -11,6 +11,7 @@ part_cero(){
 
 crypted(){
 	# encrypt root partition
+	mkfs.vfat -F32 /dev/sda1 -n "EFIBOOT"
 	cryptsetup luksFormat /dev/sda2
 	cryptsetup open /dev/sda2 cryptlvm
 	pvcreate /dev/mapper/cryptlvm
@@ -18,7 +19,6 @@ crypted(){
 	lvcreate -L 280G archlvm -n cryptroot_lvm
 	lvcreate -L 8G archlvm -n cryptswap_lvm
 	lvcreate -l 100%FREE archlvm -n crypthome_lvm
-	mkfs.vfat -F32 /dev/sda1 -n "EFIBOOT"
 	mkfs.ext4 /dev/archlvm/cryptroot_lvm -L "root_arch"
 	mkfs.ext4 /dev/archlvm/crypthome_lvm -L "home_arch"
 	mkswap /dev/archlvm/cryptswap_lvm -L "swap_arch"
@@ -30,12 +30,12 @@ crypted(){
 }
 
 not_crypted(){
+	mkfs.vfat -F32 /dev/sda1 -n "EFIBOOT"
 	pvcreate /dev/sda2
 	vgcreate archlvm /dev/sda2
 	lvcreate -L 60G archlvm -n root_lvm
 	lvcreate -L 2G archlvm -n swap_lvm
 	lvcreate -l 100%FREE archlvm -n home_lvm
-	mkfs.vfat -F32 /dev/sda1 -n "EFIBOOT"
 	mkfs.ext4 /dev/archlvm/root_lvm -L "root_arch"
 	mkfs.ext4 /dev/archlvm/home_lvm -L "home_arch"
 	mkswap /dev/archlvm/swap_lvm -L "swap_arch"
@@ -65,9 +65,9 @@ part_one(){
 	pacman -Sy terminus-font --noconfirm
 	setfont ter-v32b
 	## Sort servers rank for speed
+	rm -vf /etc/pacman.d/mirrorlist
 	pacman -Sy pacman-mirrorlist --noconfirm
 	pacman -Sy pacman-contrib --noconfirm
-	rm -vf /etc/pacman.d/mirrorlist
 	# Get the mirrorlist directly from the website.
 	curl -o /etc/pacman.d/mirrorlist https://www.archlinux.org/mirrorlist/all/
 	cp /etc/pacman.d/mirrorlist /etc/pacman.d/mirrorlist.back
@@ -89,7 +89,7 @@ part_one(){
 	[[ "${partdevice}" == "Yes" ]] && crypted
 	[[ "${partdevice}" == "No" ]] && not_crypted
 	wait $pid
-	pacstrap /mnt base base-devel linux linux-firmware man-db man-pages
+	pacstrap /mnt base base-devel linux linux-firmware 
 	genfstab -p -U /mnt >> /mnt/etc/fstab
 	cp AutoInstall /mnt/home
 	echo -e "\n\nCtrl+C if something was wrong" ; sleep 10
@@ -98,7 +98,7 @@ part_one(){
 
 part_two(){
 	# Time zone
-	pacman -Sy lvm2 vim sed intel-ucode iw wpa_supplicant networkmanager dialog terminus-font git wget openssh zsh zsh-completions zsh-syntax-highlighting zsh-autosuggestions xf86-video-intel --noconfirm
+	pacman -S lvm2 vim sed intel-ucode iw wpa_supplicant networkmanager dialog terminus-font git wget openssh zsh zsh-completions zsh-syntax-highlighting zsh-autosuggestions xf86-video-intel --noconfirm
 	ln -sf /usr/share/zoneinfo/America/Mexico_city /etc/localtime
 	hwclock --systohc
 	sed -i 's/^#en_US/en_US/'  /etc/locale.gen
@@ -114,20 +114,19 @@ part_two(){
 	clear
 	echo "Enter the root password"
 	passwd
+	bootctl install
 	rm -f /boot/loader/loader.conf
 	echo -e "default\tarch\ntimeout\t5" > /boot/loader/loader.conf
 
 	is_crypted="$(blkid /dev/sda2 | grep -i crypto)"
 	if [[ -n "${is_crypted}" ]] ; then
-		grep -w "^HOOKS" /etc/mkinitcpio.conf | sed -i 's/block/block lvm2 encrypt' /etc/mkinitcpio.conf
+		grep -w "^HOOKS" /etc/mkinitcpio.conf | sed -i 's/block/block lvm2 encrypt/' /etc/mkinitcpio.conf
 		mkinitcpio -p linux
-		bootctl install
 		uuid=$(blkid | grep /dev/sda2 | awk {'print $2'} | sed -e 's/"//g')
 		echo -e "title GNU/Linux Arch linux D@nNix\nlinux /vmlinuz-linux\ninitrd /intel-ucode.img\ninitrd /initramfs-linux.img\noptions cryptdevice=${uuid}:cryptlvm root=/dev/archlvm/cryptroot_lvm rw" > /boot/loader/entries/arch.conf
 	else
-		grep -w "^HOOKS" /etc/mkinitcpio.conf | sed -i 's/block/block lvm2' /etc/mkinitcpio.conf
+		grep -w "^HOOKS" /etc/mkinitcpio.conf | sed -i 's/block/block lvm2/' /etc/mkinitcpio.conf
 		mkinitcpio -p linux
-		bootctl install
 		uuid=$(blkid | grep /dev/mapper/archlvm-root_lvm | awk {'print $3'} | sed -e 's/"//g')
 		echo -e "title GNU/Linux Arch linux *Mendoza*\nlinux /vmlinuz-linux\ninitrd /intel-ucode.img\ninitrd /initramfs-linux.img\noptions root=${uuid} rw" > /boot/loader/entries/arch.conf
 	fi
@@ -157,7 +156,7 @@ part_three(){
 		inter-font ttf-linux-libertine ttf-linux-libertine\
 		xorg-fonts-type1 noto-fonts-emoji ttf-joypixels font-mathematica texlive-core\
 		texlive-fontsextra otf-latin-modern otf-latinmodern-math lxappearance flashplugin\
-		pepper-flash lib32-mesa --noconfirm
+		pepper-flash lib32-mesa xwallpaper --noconfirm
 	sudo updatedb
 	amixer sset Master unmute
 	amixer sset Speaker unmute
@@ -180,7 +179,6 @@ part_three(){
 	mkdir -p /home/"${username}"/.config/{bspwm,sxhkd}
 	cp -v /usr/share/doc/bspwm/examples/bspwmrc /home/"${username}"/.config/bspwm/
 	cp -v /usr/share/doc/bspwm/examples/sxhkdrc /home/"${username}"/.config/sxhkd/
-	cat /home/"${username}"/.config/sxhkd/sxhkdrc
 	sed -i 's/urxvt/xterm -bg white -fg black -fn "-xos4-terminus-bold-r-normal--32-320-72-72-c-160-iso10646-1" -bd black -cr white/' /home/"${username}"/.config/sxhkd/sxhkdrc
 	chmod +x /home/"${username}"/.config/bspwm/bspwmrc
 	cp -v /etc/X11/xinit/xinitrc /home/"${username}"/.xinitrc
@@ -192,7 +190,7 @@ part_three(){
 	cd $HOME/DOWN/yay && makepkg -si --noconfirm
 	rm -rfv $HOME/DOWN/yay
 	yay -Syu --devel --timeupdate --noconfirm
-	yay -S ttf-google-fonts-git spotify --noconfirm
+	yay -S ttf-google-fonts-git spotify --nouseask --noconfirm
 	cd $HOME/.config/ && git clone https://git.suckless.org/dmenu
 	cd $HOME/.config/dmenu/ && make && sudo make install clean
 	echo -e "Section \"InputClass\"\
