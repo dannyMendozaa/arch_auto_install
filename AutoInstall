@@ -33,8 +33,8 @@ not_crypted(){
 	mkfs.vfat -F32 /dev/sda1 -n "EFIBOOT"
 	pvcreate /dev/sda2
 	vgcreate archlvm /dev/sda2
-	lvcreate -L 60G archlvm -n root_lvm
-	lvcreate -L 2G archlvm -n swap_lvm
+	lvcreate -L 280G archlvm -n root_lvm
+	lvcreate -L 8G archlvm -n swap_lvm
 	lvcreate -l 100%FREE archlvm -n home_lvm
 	mkfs.ext4 /dev/archlvm/root_lvm -L "root_arch"
 	mkfs.ext4 /dev/archlvm/home_lvm -L "home_arch"
@@ -65,10 +65,10 @@ part_one(){
 	pacman -Sy terminus-font --noconfirm
 	setfont ter-v32b
 	## Sort servers rank for speed
-	rm -vf /etc/pacman.d/mirrorlist
 	pacman -Sy pacman-mirrorlist --noconfirm
 	pacman -Sy pacman-contrib --noconfirm
 	# Get the mirrorlist directly from the website.
+	rm -vf /etc/pacman.d/mirrorlist
 	curl -o /etc/pacman.d/mirrorlist https://www.archlinux.org/mirrorlist/all/
 	cp /etc/pacman.d/mirrorlist /etc/pacman.d/mirrorlist.back
 	sed -i 's/^#Server/Server/' /etc/pacman.d/mirrorlist.back
