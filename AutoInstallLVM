@@ -6,7 +6,13 @@
 
 part_one(){
 	# Set latinamrican keyboard.
-	loadkeys la-latin1
+	echo -e "Do you want to load latinamerican keyboard y/n\n"
+	read ans
+	if [[ $ans == 'y' ]]; then
+		loadkeys la-latin1
+	else
+		echo -e "US deafult keyboard layout\n"
+	fi
 	## Check internet connection.
 	internet=$(ping archlinux.org -c1 | grep -wo "1 packets")
 	if [[ -n $internet ]] ; then
@@ -32,7 +38,7 @@ part_one(){
 	sed -i 's/^#Server/Server/' /etc/pacman.d/mirrorlist.back
 	nohup rankmirrors -n 6 /etc/pacman.d/mirrorlist.back > /etc/pacman.d/mirrorlist &
 	pid=$!
-	parted /dev/sda
+	# parted /dev/sda
 	parted /dev/sda set 3 lvm on
 	parted /dev/sda print
 	pvcreate /dev/sda3
@@ -54,7 +60,7 @@ part_one(){
 	mount /dev/sda1 /mnt/boot/efi
 	mount /dev/arch-lvm/arch-home /mnt/home
 	wait $pid
-	pacstrap /mnt base base-devel efibootmgr vim btrfs-progs --noconfirm
+	pacstrap /mnt base linux linux-firmware efibootmgr vim btrfs-progs --noconfirm
 	genfstab -U -p /mnt >> /mnt/etc/fstab
 	cp AutoInstall /mnt/home
 	echo -e "\n\nCtrl+C if something was wrong" ; sleep 10
