@@ -16,8 +16,8 @@ crypted(){
 	cryptsetup open /dev/sda2 cryptlvm
 	pvcreate /dev/mapper/cryptlvm
 	vgcreate archlvm /dev/mapper/cryptlvm
-	lvcreate -L 280G archlvm -n cryptroot_lvm
-	lvcreate -L 8G archlvm -n cryptswap_lvm
+	lvcreate -L 150G archlvm -n cryptroot_lvm
+	lvcreate -L 2G archlvm -n cryptswap_lvm
 	lvcreate -l 100%FREE archlvm -n crypthome_lvm
 	mkfs.ext4 /dev/archlvm/cryptroot_lvm -L "root_arch"
 	mkfs.ext4 /dev/archlvm/crypthome_lvm -L "home_arch"
@@ -33,8 +33,8 @@ not_crypted(){
 	mkfs.vfat -F32 /dev/sda1 -n "EFIBOOT"
 	pvcreate /dev/sda2
 	vgcreate archlvm /dev/sda2
-	lvcreate -L 280G archlvm -n root_lvm
-	lvcreate -L 8G archlvm -n swap_lvm
+	lvcreate -L 150G archlvm -n root_lvm
+	lvcreate -L 2G archlvm -n swap_lvm
 	lvcreate -l 100%FREE archlvm -n home_lvm
 	mkfs.ext4 /dev/archlvm/root_lvm -L "root_arch"
 	mkfs.ext4 /dev/archlvm/home_lvm -L "home_arch"
@@ -47,8 +47,17 @@ not_crypted(){
 }
 
 part_one(){
-	# Set latinamrican keyboard.
-	loadkeys la-latin1
+	Set latinamrican keyboard.
+	read -p "Do you wan to use Latinamerican keyboard layout Y/N" keyboard
+	case "$keyboard" in
+		[Yy])
+			loadkeys la-latin1
+			echo -e "la-latin1 keyboard layout loaded successfully\n"
+		;;
+		*)
+			echo -e "Using default US keyboard layout\n"
+			;;
+	esac
 	## Check internet connection.
 	internet=$(ping -c1 archlinux.org | grep -wo "1 packets")
 	if [[ -n $internet ]] ; then
@@ -57,28 +66,28 @@ part_one(){
 		sleep 0.5
 	else
 		echo -e "Internet conection does not work :(\n"
-		wifi-menu
+		iwctl	
 	fi
 	# Update system clock
 	timedatectl set-ntp true
-	# Install a bigger font
-	pacman -Sy terminus-font --noconfirm
+	# Bigger font (TERMINUS FONT)
 	setfont ter-v32b
 	## Sort servers rank for speed
 	pacman -Sy pacman-mirrorlist --noconfirm
 	pacman -Sy pacman-contrib --noconfirm
 	# Get the mirrorlist directly from the website.
 	rm -vf /etc/pacman.d/mirrorlist
-	curl -o /etc/pacman.d/mirrorlist https://www.archlinux.org/mirrorlist/all/
+	curl -o /etc/pacman.d/mirrorlist https://archlinux.org/mirrorlist/all/
 	cp /etc/pacman.d/mirrorlist /etc/pacman.d/mirrorlist.back
-	sed -i 's/^#Server/Server/' /etc/pacman.d/mirrorlist.back
-	rankmirrors -n 5 /etc/pacman.d/mirrorlist.back > /etc/pacman.d/mirrorlist &
+	#sed -i 's/^#Server/Server/' /etc/pacman.d/mirrorlist.back
+	#rankmirrors -n 5 /etc/pacman.d/mirrorlist.back > /etc/pacman.d/mirrorlist &
+	reflector --latest 5 --sort rate --save /etc/pacman.d/mirrorlist
 	pid=$!
 	## Partioning
 	parted --script /dev/sda \
 		mklabel gpt \
 		mkpart primary fat32 1MiB 513MiB \
-		mkpart primary ext4 513MiB 100% \
+		mkpart primary ext4 513MiB 256001MiB \
 		set 1 esp on \
 		set 2 lvm on
 	read -p "Do you want to crypt the partition [Yes|No]=? " partdevice
@@ -91,23 +100,25 @@ part_one(){
 	wait $pid
 	pacstrap /mnt base base-devel linux linux-firmware 
 	genfstab -p -U /mnt >> /mnt/etc/fstab
-	cp AutoInstall /mnt/home
+	cp AutoInstall /mnt
 	echo -e "\n\nCtrl+C if something was wrong" ; sleep 10
 	arch-chroot /mnt
 }
 
 part_two(){
 	# Time zone
-	pacman -S lvm2 vim sed intel-ucode iw wpa_supplicant networkmanager dialog terminus-font git wget openssh zsh zsh-completions zsh-syntax-highlighting zsh-autosuggestions xf86-video-intel --noconfirm
+	pacman -S lvm2 vim sed intel-ucode dhcpcd iwd terminus-font git wget openssh zsh zsh-completions zsh-syntax-highlighting zsh-autosuggestions xf86-video-intel --noconfirm
+	# Network configuration
+	echo -e "[General]\nEnableNetworkConfiguration=True" > /etc/iwd/main.conf
 	ln -sf /usr/share/zoneinfo/America/Mexico_city /etc/localtime
 	hwclock --systohc
 	sed -i 's/^#en_US/en_US/'  /etc/locale.gen
 	sed -i 's/^#es_MX/es_MX/'  /etc/locale.gen
 	locale-gen
 	echo "LANG=en_US.UTF-8" > /etc/locale.conf
-	echo -e  "KEYMAP=la-latin1\nFONT=ter-v24b" > /etc/vconsole.conf
+	echo -e  "KEYMAP=en_US\nFONT=ter-u28b" > /etc/vconsole.conf
 	clear
-	read -p "Ingresa el nombre del equipo: " hostNAME
+	read -p "Ingresa el nombre del equipo (hostname): " hostNAME
 	echo "$hostNAME" > /etc/hostname
 	rm -f /etc/hosts
 	echo -e "127.0.0.1\tlocalhost\n::1\t\tlocalhost\n127.0.1.1\t${hostNAME}.localdomain\t$hostNAME" > /etc/hosts
@@ -123,7 +134,7 @@ part_two(){
 		grep -w "^HOOKS" /etc/mkinitcpio.conf | sed -i 's/block/block lvm2 encrypt/' /etc/mkinitcpio.conf
 		mkinitcpio -p linux
 		uuid=$(blkid | grep /dev/sda2 | awk {'print $2'} | sed -e 's/"//g')
-		echo -e "title GNU/Linux Arch linux D@nNix\nlinux /vmlinuz-linux\ninitrd /intel-ucode.img\ninitrd /initramfs-linux.img\noptions cryptdevice=${uuid}:cryptlvm root=/dev/archlvm/cryptroot_lvm rw" > /boot/loader/entries/arch.conf
+		echo -e "title GNU/Linux Arch linux [D@NNIX]\nlinux /vmlinuz-linux\ninitrd /intel-ucode.img\ninitrd /initramfs-linux.img\noptions cryptdevice=${uuid}:cryptlvm root=/dev/archlvm/cryptroot_lvm rw" > /boot/loader/entries/arch.conf
 	else
 		grep -w "^HOOKS" /etc/mkinitcpio.conf | sed -i 's/block/block lvm2/' /etc/mkinitcpio.conf
 		mkinitcpio -p linux
@@ -144,19 +155,18 @@ part_two(){
 
 part_three(){
 	username="$(whoami)"
-	sudo sed -i 's/^#\[\multilib\]/\[multilib\]/' /etc/pacman.conf
+	# sudo sed -i 's/^#\[\multilib\]/\[multilib\]/' /etc/pacman.conf
 	sudo sed -i "$(sed -n '/^#Include/ =' /etc/pacman.conf | tail -n 1)"' s/^#Include/Include/' /etc/pacman.conf
-	sudo pacman -Syyu bspwm sxhkd xorg xorg-apps xorg-xinit xdg-user-dirs\
-		alsa alsa-{firmware,lib,oss,plugins,tools,topology-conf,ucm-conf,utils}\
-		terminus-{font,font-otb} numlockx libinput xterm urxvt-perls rxvt-{unicode,unicode-terminfo}\
-		git wget curl chromium  ntfs-3g mlocate ttf-bitstream-vera font-bh-ttf ttf-croscore\
-		ttf-dejavu ttf-droid ttf-roboto noto-fonts ttf-liberation ttf-ibm-plex ttf-ubuntu-font-family\
-		ttf-cascadia-code ttf-fantasque-sans-mono otf-fantasque-sans-mono\
-		ttf-fira-mono otf-fira-mono ttf-fira-code gnu-free-fonts ttf-hack\
-		inter-font ttf-linux-libertine ttf-linux-libertine\
-		xorg-fonts-type1 noto-fonts-emoji ttf-joypixels font-mathematica texlive-core\
-		texlive-fontsextra otf-latin-modern otf-latinmodern-math lxappearance flashplugin\
-		pepper-flash lib32-mesa xwallpaper --noconfirm
+	sudo pacman -Syyu qtile xorg-server xorg-apps xorg-xinit xdg-user-dirs ttf-iosevka-nerd\
+		alsa alsa-{firmware,lib,oss,plugins,tools,topology-conf,ucm-conf,utils} ttc-iosevka\
+		numlockx libinput xterm git wget curl chromium  ntfs-3g mlocate ttf-bitstream-vera\
+	       	ttf-croscore ttf-dejavu ttf-droid ttf-roboto noto-fonts ttf-liberation ttf-ibm-plex\
+	       	ttf-ubuntu-font-family ttf-cascadia-code ttf-fantasque-sans-mono otf-fantasque-sans-mono\
+		ttf-fira-mono otf-fira-mono ttf-fira-code gnu-free-fonts ttf-hack inter-font awesome-terminal-fonts\
+	       	ttf-linux-libertine ttf-linux-libertine xorg-fonts-type1 noto-fonts-emoji ttf-joypixels\
+	       	texlive-core texlive-fontsextra otf-latin-modern otf-latinmodern-math lxappearance-gtk3\
+	       	pipewire pipewire-docs wireplumber qpwgraph pipewire-alsa pipewire-pulse hdparm\
+		xclip xsel transmission-cli --noconfirm
 	sudo updatedb
 	amixer sset Master unmute
 	amixer sset Speaker unmute
@@ -166,26 +176,26 @@ part_three(){
 	xdg-user-dirs-update
 	rm -rvf /home/"${username}"/.config/user-dirs.dirs ; sleep 2
 	rm -rvf /home/"${username}"/*
-	mkdir -p /home/"${username}"/{DATA,DESK,DOWN,MOVS,PICS,PUBL,TEMP,MUSC}
+	mkdir -p /home/"${username}"/{DOCS,DESK,DOWN,MOVS,PICS,PUBL,TMPL,MSIC}
 	echo -e "XDG_DESKTOP_DIR=\"$HOME/DESK\"\
 		\nXDG_DOWNLOAD_DIR=\"$HOME/DOWN\"\
-		\nXDG_TEMPLATES_DIR=\"$HOME/TEMP\"\
+		\nXDG_TEMPLATES_DIR=\"$HOME/TMPL\"\
 		\nXDG_PUBLICSHARE_DIR=\"$HOME/PUBL\"\
-		\nXDG_DOCUMENTS_DIR=\"$HOME/DATA\"\
-		\nXDG_MUSIC_DIR=\"$HOME/MUSC\"\
+		\nXDG_DOCUMENTS_DIR=\"$HOME/DOCS\"\
+		\nXDG_MUSIC_DIR=\"$HOME/MSIC\"\
 		\nXDG_PICTURES_DIR=\"$HOME/PICS\"\
 		\nXDG_VIDEOS_DIR=\"$HOME/MOVS\"" >> /home/"${username}"/.config/user-dirs.dirs
 	xdg-user-dirs-update
-	mkdir -p /home/"${username}"/.config/{bspwm,sxhkd}
-	cp -v /usr/share/doc/bspwm/examples/bspwmrc /home/"${username}"/.config/bspwm/
-	cp -v /usr/share/doc/bspwm/examples/sxhkdrc /home/"${username}"/.config/sxhkd/
-	sed -i 's/urxvt/xterm -bg white -fg black -fn "-xos4-terminus-bold-r-normal--32-320-72-72-c-160-iso10646-1" -bd black -cr white/' /home/"${username}"/.config/sxhkd/sxhkdrc
-	chmod +x /home/"${username}"/.config/bspwm/bspwmrc
+	# mkdir -p /home/"${username}"/.config/{bspwm,sxhkd}
+	# cp -v /usr/share/doc/bspwm/examples/bspwmrc /home/"${username}"/.config/bspwm/
+	# cp -v /usr/share/doc/bspwm/examples/sxhkdrc /home/"${username}"/.config/sxhkd/
+	# sed -i 's/urxvt/xterm -bg white -fg black -fn "-xos4-terminus-bold-r-normal--32-320-72-72-c-160-iso10646-1" -bd black -cr white/' /home/"${username}"/.config/sxhkd/sxhkdrc
+	# chmod +x /home/"${username}"/.config/bspwm/bspwmrc
 	cp -v /etc/X11/xinit/xinitrc /home/"${username}"/.xinitrc
 	sed -i '/^$/d' /home/"${username}"/.xinitrc
 	sed -i '/^twm/,$d' /home/"${username}"/.xinitrc
-	sudo sed -i 's/^#HandleLid/HandleLid/g' /etc/systemd/logind.conf
-	echo "exec bspwm 2>&1" >> /home/"${username}"/.xinitrc
+	# sudo sed -i 's/^#HandleLid/HandleLid/g' /etc/systemd/logind.conf
+	echo "exec qtile start 2>&1" >> /home/"${username}"/.xinitrc
 	cd $HOME/DOWN && git clone https://aur.archlinux.org/yay.git
 	cd $HOME/DOWN/yay && makepkg -si --noconfirm
 	rm -rfv $HOME/DOWN/yay
@@ -205,7 +215,7 @@ part_three(){
         \n\tDriver \"libinput\"\
         \nEndSection" > $HOME/30-touchpad.conf
 	sudo mv $HOME/30-touchpad.conf /etc/X11/xorg.conf.d/
-	cp ~/.Autoinstall ~/Autoinstall
+	#cp ~/.Autoinstall ~/Autoinstall
 }
 
 quit(){
