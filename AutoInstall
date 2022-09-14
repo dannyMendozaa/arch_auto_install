@@ -47,8 +47,8 @@ not_crypted(){
 }
 
 part_one(){
-	Set latinamrican keyboard.
-	read -p "Do you wan to use Latinamerican keyboard layout Y/N" keyboard
+	# Set latinamerican keyboard layout.
+	read -p "Do you wan to use Latinamerican keyboard layout [Y/N]: " keyboard
 	case "$keyboard" in
 		[Yy])
 			loadkeys la-latin1
@@ -107,7 +107,13 @@ part_one(){
 
 part_two(){
 	# Time zone
-	pacman -S lvm2 vim sed intel-ucode dhcpcd iwd terminus-font git wget openssh zsh zsh-completions zsh-syntax-highlighting zsh-autosuggestions xf86-video-intel --noconfirm
+	sudo sed -i 's/^#Color/Color/' /etc/pacman.conf
+	sudo sed -i 's/^#Parallel/Parallel/' /etc/pacman.conf
+	sudo sed -i 's/^#\[\multilib\]/\[multilib\]/' /etc/pacman.conf
+	sudo sed -i "$(sed -n '/^#Include/ =' /etc/pacman.conf | tail -n 1)"' s/^#Include/Include/' /etc/pacman.conf
+	curl https://geo.mirror.pkgbuild.com/iso/latest/arch/pkglist.x86_64.txt --output pkglist.x86_64.txt
+	sed -i 's/ .*$//' pkglist.x86_64.txt
+	pacman -S --needed - < pkglist.x86_64.txt --noconfirm
 	# Network configuration
 	echo -e "[General]\nEnableNetworkConfiguration=True" > /etc/iwd/main.conf
 	ln -sf /usr/share/zoneinfo/America/Mexico_city /etc/localtime
@@ -150,15 +156,14 @@ part_two(){
 	useradd -m -G adm,ftp,games,http,log,rfkill,sys,systemd-journal,uucp,wheel,dbus,kmem,lp,mail,proc,root,tty,utmp,disk,floppy,input,kvm,optical,scanner,storage,video,network,power,uuidd,users -s /bin/"${shellselected}" "${username}"
 	echo "Enter the ${username} password"
 	passwd "${username}"
-	sudo sed -i "$(sed -n '/^# %wheel/ =' /etc/sudoers | tail -n 1)"' s/^# %wheel/%wheel/' /etc/sudoers
+	sed -i "$(sed -n '/^# %wheel/ =' /etc/sudoers | tail -n 1)"' s/^# %wheel/%wheel/' /etc/sudoers
 }
 
 part_three(){
+	[[ $EUID -eq 0 ]] && echo -e "You are a root user\n" && exit
 	username="$(whoami)"
-	# sudo sed -i 's/^#\[\multilib\]/\[multilib\]/' /etc/pacman.conf
-	sudo sed -i "$(sed -n '/^#Include/ =' /etc/pacman.conf | tail -n 1)"' s/^#Include/Include/' /etc/pacman.conf
-	sudo pacman -Syyu qtile xorg-server xorg-apps xorg-xinit xdg-user-dirs ttf-iosevka-nerd\
-		alsa alsa-{firmware,lib,oss,plugins,tools,topology-conf,ucm-conf,utils} ttc-iosevka\
+	sudo pacman -Syyu qtile xorg-drivers xorg-server xorg-apps xorg-xinit xdg-user-dirs ttf-iosevka-nerd\
+		alsa alsa-{firmware,lib,plugins,tools,utils} ttc-iosevka\
 		numlockx libinput xterm git wget curl chromium  ntfs-3g mlocate ttf-bitstream-vera\
 	       	ttf-croscore ttf-dejavu ttf-droid ttf-roboto noto-fonts ttf-liberation ttf-ibm-plex\
 	       	ttf-ubuntu-font-family ttf-cascadia-code ttf-fantasque-sans-mono otf-fantasque-sans-mono\
@@ -166,7 +171,8 @@ part_three(){
 	       	ttf-linux-libertine ttf-linux-libertine xorg-fonts-type1 noto-fonts-emoji ttf-joypixels\
 	       	texlive-core texlive-fontsextra otf-latin-modern otf-latinmodern-math lxappearance-gtk3\
 	       	pipewire pipewire-docs wireplumber qpwgraph pipewire-alsa pipewire-pulse hdparm\
-		xclip xsel transmission-cli --noconfirm
+		xclip xsel transmission-cli python-dbus python-dbus-next python-xlib python-pip\
+		libldm	--noconfirm
 	sudo updatedb
 	amixer sset Master unmute
 	amixer sset Speaker unmute
@@ -176,15 +182,15 @@ part_three(){
 	xdg-user-dirs-update
 	rm -rvf /home/"${username}"/.config/user-dirs.dirs ; sleep 2
 	rm -rvf /home/"${username}"/*
-	mkdir -p /home/"${username}"/{DOCS,DESK,DOWN,MOVS,PICS,PUBL,TMPL,MSIC}
-	echo -e "XDG_DESKTOP_DIR=\"$HOME/DESK\"\
-		\nXDG_DOWNLOAD_DIR=\"$HOME/DOWN\"\
-		\nXDG_TEMPLATES_DIR=\"$HOME/TMPL\"\
-		\nXDG_PUBLICSHARE_DIR=\"$HOME/PUBL\"\
+	mkdir -p /home/"${username}"/{DOCS,DESKTOP,DOWNLOADS,MEDIA,PHOTOS,PUBLIC,TEMPLATES,MUSIC}
+	echo -e "XDG_DESKTOP_DIR=\"$HOME/DESKTOP\"\
+		\nXDG_DOWNLOAD_DIR=\"$HOME/DOWNLOADS\"\
+		\nXDG_TEMPLATES_DIR=\"$HOME/TEMPLATES\"\
+		\nXDG_PUBLICSHARE_DIR=\"$HOME/PUBLIC\"\
 		\nXDG_DOCUMENTS_DIR=\"$HOME/DOCS\"\
-		\nXDG_MUSIC_DIR=\"$HOME/MSIC\"\
-		\nXDG_PICTURES_DIR=\"$HOME/PICS\"\
-		\nXDG_VIDEOS_DIR=\"$HOME/MOVS\"" >> /home/"${username}"/.config/user-dirs.dirs
+		\nXDG_MUSIC_DIR=\"$HOME/MUSIC\"\
+		\nXDG_PICTURES_DIR=\"$HOME/PHOTOS\"\
+		\nXDG_VIDEOS_DIR=\"$HOME/MEDIA\"" >> /home/"${username}"/.config/user-dirs.dirs
 	xdg-user-dirs-update
 	# mkdir -p /home/"${username}"/.config/{bspwm,sxhkd}
 	# cp -v /usr/share/doc/bspwm/examples/bspwmrc /home/"${username}"/.config/bspwm/
@@ -195,12 +201,14 @@ part_three(){
 	sed -i '/^$/d' /home/"${username}"/.xinitrc
 	sed -i '/^twm/,$d' /home/"${username}"/.xinitrc
 	# sudo sed -i 's/^#HandleLid/HandleLid/g' /etc/systemd/logind.conf
+	echo -e "xrandr --dpi 144 --output HDMI1 --mode 2560x1440 --pos 1360x0 --output eDP1 --off" >> /home/"${username}"/.xinitrc
 	echo "exec qtile start 2>&1" >> /home/"${username}"/.xinitrc
 	cd $HOME/DOWN && git clone https://aur.archlinux.org/yay.git
 	cd $HOME/DOWN/yay && makepkg -si --noconfirm
 	rm -rfv $HOME/DOWN/yay
 	yay -Syu --devel --timeupdate --noconfirm
-	yay -S ttf-google-fonts-git spotify --nouseask --noconfirm
+	yay -S ttf-google-fonts-git --nouseask --noconfirm
+	yay -S spotify --nouseask --noconfirm
 	cd $HOME/.config/ && git clone https://git.suckless.org/dmenu
 	cd $HOME/.config/dmenu/ && make && sudo make install clean
 	echo -e "Section \"InputClass\"\
@@ -215,7 +223,7 @@ part_three(){
         \n\tDriver \"libinput\"\
         \nEndSection" > $HOME/30-touchpad.conf
 	sudo mv $HOME/30-touchpad.conf /etc/X11/xorg.conf.d/
-	#cp ~/.Autoinstall ~/Autoinstall
+	#cp ~/Autoinstall ~/Autoinstall
 }
 
 quit(){
